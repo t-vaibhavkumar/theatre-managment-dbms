@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theater Management - Payment</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Complete Payment</h1>
+        <nav>
+            <a href="index.html" class="nav-link">Home</a>
+            <a href="register.html" class="nav-link">Register</a>
+            <a href="booking.html" class="nav-link">Book Tickets</a>
+        </nav>
+    </header>
+    <section>
+        <form id="paymentForm" class="form">
+            <label for="booking_id">Booking ID:</label>
+            <input type="number" id="booking_id" name="booking_id" class="input-field" required>
+
+            <label for="payment_type">Payment Type:</label>
+            <select id="payment_type" name="payment_type" class="input-field">
+                <option value="credit">Credit Card</option>
+                <option value="debit">Debit Card</option>
+                <option value="upi">UPI</option>
+                <option value="cash">Cash on Delivery</option>
+            </select>
+
+            <button type="submit" class="btn">Complete Payment</button>
+        </form>
+    </section>
+    <script src="payment.js"></script>
+</body>
+</html>

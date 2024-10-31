@@ -1,128 +1,123 @@
 import streamlit as st
 import sqlite3
+import os
 from datetime import datetime
 
-# Database connection
-def create_connection():
-    return sqlite3.connect("theatre_management.db")
+# Initialize the database
+def init_db():
+    conn = sqlite3.connect('theater.db')
+    cursor = conn.cursor()
 
-# Initialize the database and tables
-def create_tables():
-    connection = create_connection()
-    cursor = connection.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS Customer (
-                        User_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Name TEXT,
-                        Email TEXT,
-                        Password TEXT,
-                        Phone_Number TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS Movie (
-                        Movie_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Name TEXT,
-                        Language TEXT,
-                        Genre TEXT,
-                        Release_Date TEXT,
-                        Rating REAL)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS Booking (
-                        Booking_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        User_ID INTEGER,
-                        Movie_ID INTEGER,
-                        Screen_ID INTEGER,
-                        Booking_Date TEXT,
-                        Number_of_Seats INTEGER,
-                        FOREIGN KEY (User_ID) REFERENCES Customer(User_ID),
-                        FOREIGN KEY (Movie_ID) REFERENCES Movie(Movie_ID))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS Payment (
-                        Payment_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Booking_ID INTEGER,
-                        Amount REAL,
-                        Payment_Type TEXT,
-                        Payment_Status TEXT,
-                        FOREIGN KEY (Booking_ID) REFERENCES Booking(Booking_ID))''')
-    connection.commit()
-    cursor.close()
-    connection.close()
+    # Create tables based on your ER model
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Users (
+            user_id INTEGER PRIMARY KEY,
+            email TEXT,
+            password TEXT,
+            name TEXT,
+            phone_number TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Movies (
+            movie_id INTEGER PRIMARY KEY,
+            name TEXT,
+            language TEXT,
+            genre TEXT,
+            release_date TEXT,
+            rating REAL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Shows (
+            show_id INTEGER PRIMARY KEY,
+            screen_id INTEGER,
+            movie_id INTEGER,
+            show_time TEXT,
+            date TEXT,
+            FOREIGN KEY (movie_id) REFERENCES Movies(movie_id)
+        )
+    ''')
 
-# Home Page: Display available movies
-def show_movies():
-    st.header("Available Movies")
-    connection = create_connection()
-    cursor = connection.cursor()
-    cursor.execute("SELECT Name, Language, Genre, Release_Date, Rating FROM Movie")
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Bookings (
+            booking_id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            show_id INTEGER,
+            seats INTEGER,
+            payment_status TEXT,
+            FOREIGN KEY (user_id) REFERENCES Users(user_id),
+            FOREIGN KEY (show_id) REFERENCES Shows(show_id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# Run the initialization
+if not os.path.exists('theater.db'):
+    init_db()
+
+# Function to fetch movies from the database
+def get_movies():
+    conn = sqlite3.connect('theater.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Movies")
     movies = cursor.fetchall()
-    cursor.close()
-    connection.close()
+    conn.close()
+    return movies
 
-    if movies:
-        for movie in movies:
-            st.write(f"**Title:** {movie[0]}, **Language:** {movie[1]}, **Genre:** {movie[2]}, **Release Date:** {movie[3]}, **Rating:** {movie[4]}")
-    else:
-        st.write("No movies available.")
+# Function to add a new movie
+def add_movie(name, language, genre, release_date, rating):
+    conn = sqlite3.connect('theater.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Movies (name, language, genre, release_date, rating) VALUES (?, ?, ?, ?, ?)",
+                   (name, language, genre, release_date, rating))
+    conn.commit()
+    conn.close()
 
-# Register a new customer
-def register_customer():
-    st.header("Customer Registration")
-    name = st.text_input("Name")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    phone = st.text_input("Phone Number")
+# Function to book tickets
+def book_tickets(user_id, show_id, seats, payment_status):
+    conn = sqlite3.connect('theater.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Bookings (user_id, show_id, seats, payment_status) VALUES (?, ?, ?, ?)",
+                   (user_id, show_id, seats, payment_status))
+    conn.commit()
+    conn.close()
 
-    if st.button("Register"):
-        connection = create_connection()
-        cursor = connection.cursor()
-        cursor.execute("INSERT INTO Customer (Name, Email, Password, Phone_Number) VALUES (?, ?, ?, ?)", 
-                       (name, email, password, phone))
-        connection.commit()
-        cursor.close()
-        connection.close()
-        st.success("Registration successful!")
+# Streamlit Interface
+st.title("Theater Management System")
 
-# Book a ticket
-def book_ticket():
-    st.header("Book a Ticket")
-    user_id = st.number_input("User ID", min_value=1, step=1)
-    movie_id = st.number_input("Movie ID", min_value=1, step=1)
-    screen_id = st.number_input("Screen ID", min_value=1, step=1)
-    seats = st.number_input("Number of Seats", min_value=1, step=1)
+# Display available movies
+st.header("Available Movies")
+movies = get_movies()
+for movie in movies:
+    st.write(f"Name: {movie[1]}, Language: {movie[2]}, Genre: {movie[3]}, Release Date: {movie[4]}, Rating: {movie[5]}/5")
 
-    if st.button("Confirm Booking"):
-        connection = create_connection()
-        cursor = connection.cursor()
-        cursor.execute("INSERT INTO Booking (User_ID, Movie_ID, Screen_ID, Booking_Date, Number_of_Seats) VALUES (?, ?, ?, ?, ?)",
-                       (user_id, movie_id, screen_id, datetime.now().strftime("%Y-%m-%d"), seats))
-        connection.commit()
-        cursor.close()
-        connection.close()
-        st.success("Booking confirmed!")
+# Form to add a new movie
+st.header("Add a New Movie")
+with st.form("add_movie_form"):
+    movie_name = st.text_input("Movie Name")
+    movie_language = st.text_input("Language")
+    movie_genre = st.text_input("Genre")
+    movie_release_date = st.date_input("Release Date")
+    movie_rating = st.slider("Rating", 0.0, 5.0, step=0.1)
+    submitted = st.form_submit_button("Add Movie")
+    if submitted:
+        add_movie(movie_name, movie_language, movie_genre, movie_release_date.strftime("%Y-%m-%d"), movie_rating)
+        st.success(f"Movie '{movie_name}' added successfully!")
 
-# Process a payment
-def process_payment():
-    st.header("Payment")
-    booking_id = st.number_input("Booking ID", min_value=1, step=1)
-    amount = st.number_input("Amount", min_value=0.0, step=0.01)
-    payment_type = st.selectbox("Payment Type", ["Credit Card", "Debit Card", "UPI", "Net Banking"])
+# Form to book tickets
+st.header("Book Tickets")
+with st.form("book_tickets_form"):
+    user_id = st.number_input("User ID", min_value=1)
+    show_id = st.number_input("Show ID", min_value=1)
+    seats = st.number_input("Number of Seats", min_value=1)
+    payment_status = st.selectbox("Payment Status", ["Pending", "Paid"])
+    booking_submitted = st.form_submit_button("Book Tickets")
+    if booking_submitted:
+        book_tickets(user_id, show_id, seats, payment_status)
+        st.success(f"Tickets booked successfully for Show ID {show_id}!")
 
-    if st.button("Make Payment"):
-        connection = create_connection()
-        cursor = connection.cursor()
-        cursor.execute("INSERT INTO Payment (Booking_ID, Amount, Payment_Type, Payment_Status) VALUES (?, ?, ?, ?)", 
-                       (booking_id, amount, payment_type, "Completed"))
-        connection.commit()
-        cursor.close()
-        connection.close()
-        st.success("Payment successful!")
-
-# Sidebar navigation
-st.sidebar.title("Theatre Management System")
-page = st.sidebar.radio("Go to", ["Home", "Register", "Book Ticket", "Payment"])
-
-# Page routing
-create_tables()  # Ensure tables are created
-if page == "Home":
-    show_movies()
-elif page == "Register":
-    register_customer()
-elif page == "Book Ticket":
-    book_ticket()
-elif page == "Payment":
-    process_payment()
